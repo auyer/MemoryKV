@@ -4,57 +4,78 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 use tower::BoxError;
 
-use crate::db::KVStoreConn;
+use crate::{db::KVStore, errors::KVError};
+
+pub async fn ping() -> Bytes {
+    Bytes::from("pong")
+}
 
 pub async fn kv_get(
     Path(key): Path<String>,
-    State(kvstore): State<KVStoreConn>,
+    State(kvstore): State<Arc<KVStore>>,
 ) -> Result<Bytes, StatusCode> {
-    let db = &kvstore.read().unwrap();
-
-    if let Some(value) = db.get(&key) {
-        Ok(value.clone())
-    } else {
-        Err(StatusCode::NOT_FOUND)
+    match kvstore.get(&key) {
+        Some(value) => Ok(value),
+        None => Ok(bytes::Bytes::new()),
     }
 }
 
-pub async fn kv_set(Path(key): Path<String>, State(kvstore): State<KVStoreConn>, bytes: Bytes) {
-    kvstore.write().unwrap().insert(&key, bytes);
+pub async fn kv_set(
+    Path(key): Path<String>,
+    State(kvstore): State<Arc<KVStore>>,
+    bytes: Bytes,
+) -> Result<Bytes, StatusCode> {
+    match kvstore.insert(&key, bytes) {
+        Some(value) => Ok(value),
+        None => Ok(bytes::Bytes::new()),
+    }
 }
 
-pub async fn list_keys(State(kvstore): State<KVStoreConn>) -> String {
-    let db = &kvstore.read().unwrap();
+pub async fn remove_key(
+    Path(key): Path<String>,
+    State(kvstore): State<Arc<KVStore>>,
+) -> Result<Bytes, StatusCode> {
+    match kvstore.remove(&key) {
+        Some(value) => Ok(value),
+        None => Err(StatusCode::NOT_FOUND),
+    }
+}
 
-    db.list_keys()
+pub async fn remove_prefix(
+    Path(key): Path<String>,
+    State(kvstore): State<Arc<KVStore>>,
+) -> axum::Json<Vec<String>> {
+    kvstore
+        .remove_with_prefix(&key)
         .into_iter()
-        .map(|key| key.to_string())
         .collect::<Vec<String>>()
-        .join("\n")
+        .into()
+}
+
+pub async fn remove_all_keys(State(kvstore): State<Arc<KVStore>>) -> Result<(), StatusCode> {
+    Ok(kvstore.remove_all())
+}
+
+pub async fn list_keys(State(kvstore): State<Arc<KVStore>>) -> axum::Json<Vec<String>> {
+    kvstore
+        .list_keys()
+        .into_iter()
+        .collect::<Vec<String>>()
+        .into()
 }
 
 pub async fn list_keys_with_prefix(
     Path(prefix): Path<String>,
-    State(kvstore): State<KVStoreConn>,
-) -> String {
-    let db = &kvstore.read().unwrap();
-
-    db.list_keys_with_prefix(&prefix)
+    State(kvstore): State<Arc<KVStore>>,
+) -> axum::Json<Vec<String>> {
+    kvstore
+        .list_keys_with_prefix(&prefix)
         .into_iter()
-        .map(|key| key.to_string())
         .collect::<Vec<String>>()
-        .join("\n")
-}
-
-pub async fn delete_all_keys(State(kvstore): State<KVStoreConn>) {
-    kvstore.write().unwrap().remove_all();
-}
-
-pub async fn remove_key(Path(key): Path<String>, State(kvstore): State<KVStoreConn>) {
-    kvstore.write().unwrap().remove(&key);
+        .into()
 }
 
 pub async fn handle_error(error: BoxError) -> impl IntoResponse {

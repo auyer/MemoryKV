@@ -13,10 +13,8 @@ use tower_http::{
     validate_request::ValidateRequestHeaderLayer,
 };
 
-use crate::db::{KVStore, KVStoreConn};
-use crate::handlers::{
-    delete_all_keys, handle_error, kv_get, kv_set, list_keys, list_keys_with_prefix, remove_key,
-};
+use crate::db::KVStore;
+use crate::handlers;
 use crate::metrics;
 
 pub fn build_app() -> IntoMakeService<Router> {
@@ -25,29 +23,30 @@ pub fn build_app() -> IntoMakeService<Router> {
 
     // Build our application by composing routes
     let app = Router::new()
+        .route("/ping", get(handlers::ping))
         .route(
             "/:key",
-            // Add compression to `kv_get`
-            get(kv_get.layer(CompressionLayer::new()))
-                // But don't compress `kv_set`
-                .post_service(
-                    kv_set
-                        .layer((
-                            DefaultBodyLimit::disable(),
-                            RequestBodyLimitLayer::new(1024 * 5_000 /* ~5mb */),
-                        ))
-                        .with_state(Arc::clone(&shared_state)),
-                ),
+            get(handlers::kv_get)
+                .post(handlers::kv_set)
+                .delete(handlers::remove_key),
         )
-        .route("/keys", get(list_keys))
-        .route("/keys/:prefix", get(list_keys_with_prefix))
-        // Nest our admin routes under `/admin`
-        .nest("/admin", admin_routes())
-        // Add middleware to all routes
+        .route(
+            "/keys",
+            get(handlers::list_keys).delete(handlers::remove_all_keys),
+        )
+        .route(
+            "/keys/:prefix",
+            get(handlers::list_keys_with_prefix).delete(handlers::remove_prefix),
+        )
+        .layer((
+            DefaultBodyLimit::disable(),
+            RequestBodyLimitLayer::new(1024 * 5_000 /* ~5mb */),
+        ))
+        .layer(CompressionLayer::new())
         .layer(
             ServiceBuilder::new()
                 // Handle errors from middleware
-                .layer(HandleErrorLayer::new(handle_error))
+                .layer(HandleErrorLayer::new(handlers::handle_error))
                 .load_shed()
                 .concurrency_limit(1024)
                 .timeout(Duration::from_secs(10))
@@ -55,14 +54,6 @@ pub fn build_app() -> IntoMakeService<Router> {
         )
         .layer(metrics::create_tracing_layer())
         .layer(middleware::from_fn(metrics::track_metrics))
-        .with_state(Arc::clone(&shared_state));
+        .with_state(shared_state.clone());
     return app.into_make_service();
-}
-
-fn admin_routes() -> Router<KVStoreConn> {
-    Router::new()
-        .route("/keys", delete(delete_all_keys))
-        .route("/key/:key", delete(remove_key))
-        // Require bearer auth for all admin routes
-        .layer(ValidateRequestHeaderLayer::bearer("secret-token"))
 }
