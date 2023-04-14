@@ -2,10 +2,10 @@ use std::net::SocketAddr;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
+use kv::configuration;
 use kv::metrics;
 use kv::routes;
 use kv::shutdown;
-use kv::configuration;
 
 #[tokio::main]
 async fn main() {
