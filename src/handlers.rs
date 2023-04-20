@@ -145,7 +145,7 @@ async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: Arc<KVStore>, m
     let (mut sender, mut receiver) = stream.split();
 
     if sender.send(Message::Ping(vec![1, 2, 3])).await.is_err(){
-        tracing::info!("Failed to send ping to {}, disconected",addr);
+        tracing::info!("Failed to send ping to {}, disconnected",addr);
         return
     };
     // We subscribe *before* sending the "joined" message, so that we will also
@@ -175,7 +175,7 @@ async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: Arc<KVStore>, m
     });
 
 
-    // task to recieve WAL messages and send to the WS client
+    // task to receive WAL messages and send to the WS client
     let mut wal_task = tokio::spawn(async move {
         match mode {
             WalType::Binary => {
@@ -204,7 +204,7 @@ async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: Arc<KVStore>, m
             if state.send_heartbeat(addr).is_err(){
                 break;
             };
-            sleep(Duration::from_secs(15)).await;
+            sleep(Duration::from_secs(60)).await;
         }
     });
 
@@ -214,7 +214,7 @@ async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: Arc<KVStore>, m
         _ = (&mut client_messages) => client_messages.abort(),
         _ = (&mut heartbeat_task) => heartbeat_task.abort(),
     };
-    // this handler is missing a propper disconect
+    // this handler is missing a proper disconnect
     
-    tracing::info!("Client {} disconected",addr);
+    tracing::info!("Client {} disconnected",addr);
 }
