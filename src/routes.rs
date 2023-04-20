@@ -1,28 +1,29 @@
 use axum::{
     error_handling::HandleErrorLayer,
     extract::DefaultBodyLimit,
-    handler::Handler,
     middleware,
-    routing::{delete, get, IntoMakeService},
+    routing::{delete, get},
     Router,
 };
-use std::{sync::Arc, time::Duration};
+use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
+use std::{ time::Duration, net::SocketAddr};
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer, limit::RequestBodyLimitLayer, trace::TraceLayer,
-    validate_request::ValidateRequestHeaderLayer,
+    // validate_request::ValidateRequestHeaderLayer,
 };
 
 use crate::db::KVStore;
 use crate::handlers;
 use crate::metrics;
 
-pub fn build_app() -> IntoMakeService<Router> {
+pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAddr> {
     // move out
     let shared_state = KVStore::new();
 
     // Build our application by composing routes
     let app = Router::new()
+        .route("/wal", get(handlers::ws_handler))
         .route("/ping", get(handlers::ping))
         .route(
             "/:key",
@@ -55,5 +56,5 @@ pub fn build_app() -> IntoMakeService<Router> {
         .layer(metrics::create_tracing_layer())
         .layer(middleware::from_fn(metrics::track_metrics))
         .with_state(shared_state.clone());
-    return app.into_make_service();
+    return app.into_make_service_with_connect_info::<SocketAddr>();
 }

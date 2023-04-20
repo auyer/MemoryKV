@@ -29,7 +29,7 @@ async fn server(port: u16) {
     let app = routes::build_app();
 
     // Run our app with axum
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("listening on {}", addr);
 
     axum::Server::bind(&addr)

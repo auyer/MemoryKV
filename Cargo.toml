@@ -4,9 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.6", features = ["http2", "headers"] }
+axum = { version = "0.6", features = ["http2", "headers", "ws"] }
 hyper = { version = "0.14", features = ["full"] }
+futures = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 tokio = { version = "1.0", features = ["full"] }
+tokio-tungstenite = "0.18.0"
 tower = { version = "0.4", features = [
     "util",
     "timeout",
@@ -25,9 +28,10 @@ tower-layer = "0.3.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1.0", features = ["derive"] }
-metrics = "0.20"
-metrics-exporter-prometheus = "0.11"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
 envy = "0.4.2"
 bytes = "1.4.0"
 thiserror = "1.0.40"
 parking_lot = "0.12.1"
+headers = "0.3.8"
