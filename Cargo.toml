@@ -7,7 +7,10 @@ edition = "2021"
 axum = { version = "0.6", features = ["http2", "headers", "ws"] }
 hyper = { version = "0.14", features = ["full"] }
 futures = "0.3"
-futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+futures-util = { version = "0.3", default-features = false, features = [
+    "sink",
+    "std",
+] }
 tokio = { version = "1.0", features = ["full"] }
 tokio-tungstenite = "0.18.0"
 tower = { version = "0.4", features = [
@@ -17,6 +20,7 @@ tower = { version = "0.4", features = [
     "limit",
 ] }
 tower-http = { version = "0.4.0", features = [
+    "cors",
     "timeout",
     "trace",
     "add-extension",

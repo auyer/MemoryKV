@@ -1,15 +1,19 @@
+use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use axum::{
     error_handling::HandleErrorLayer,
     extract::DefaultBodyLimit,
+    http::Method,
     middleware,
     routing::{delete, get},
     Router,
 };
-use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
-use std::{ time::Duration, net::SocketAddr};
+use std::{net::SocketAddr, time::Duration};
 use tower::ServiceBuilder;
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::{
-    compression::CompressionLayer, limit::RequestBodyLimitLayer, trace::TraceLayer,
+    compression::CompressionLayer,
+    limit::RequestBodyLimitLayer,
+    trace::TraceLayer,
     // validate_request::ValidateRequestHeaderLayer,
 };
 
@@ -18,6 +22,11 @@ use crate::handlers;
 use crate::metrics;
 
 pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAddr> {
+    let cors = CorsLayer::new()
+        // allow `GET` and `POST` when accessing the resource
+        .allow_methods([Method::GET, Method::POST, Method::DELETE])
+        // allow requests from any origin
+        .allow_origin(Any);
     // move out
     let shared_state = KVStore::new();
 
@@ -44,6 +53,7 @@ pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAdd
             RequestBodyLimitLayer::new(1024 * 5_000 /* ~5mb */),
         ))
         .layer(CompressionLayer::new())
+        .layer(cors)
         .layer(
             ServiceBuilder::new()
                 // Handle errors from middleware
