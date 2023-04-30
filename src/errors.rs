@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::wal;
+use thiserror::Error;
 /// Errors that can happen when using this service
 
 #[derive(Error, Debug)]

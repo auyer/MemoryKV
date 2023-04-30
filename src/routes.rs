@@ -1,11 +1,7 @@
 use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use axum::{
-    error_handling::HandleErrorLayer,
-    extract::DefaultBodyLimit,
-    http::Method,
-    middleware,
-    routing::{delete, get},
-    Router,
+    error_handling::HandleErrorLayer, extract::DefaultBodyLimit, http::Method, middleware,
+    routing::get, Router,
 };
 use std::{net::SocketAddr, time::Duration};
 use tower::ServiceBuilder;
@@ -23,8 +19,8 @@ use crate::metrics;
 
 pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAddr> {
     let cors = CorsLayer::new()
-        // allow `GET` and `POST` when accessing the resource
-        .allow_methods([Method::GET, Method::POST, Method::DELETE])
+        // allow `GET`, `PUT` and `DELETE` when accessing the resource
+        .allow_methods([Method::GET, Method::PUT, Method::DELETE])
         // allow requests from any origin
         .allow_origin(Any);
     // move out
@@ -37,7 +33,7 @@ pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAdd
         .route(
             "/:key",
             get(handlers::kv_get)
-                .post(handlers::kv_set)
+                .put(handlers::kv_set)
                 .delete(handlers::remove_key),
         )
         .route(
