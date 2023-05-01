@@ -39,3 +39,13 @@ bytes = "1.4.0"
 thiserror = "1.0.40"
 parking_lot = "0.12.1"
 headers = "0.3.8"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+strip = "debuginfo"
+panic = 'unwind'
+incremental = false
+codegen-units = 1
+rpath = false
