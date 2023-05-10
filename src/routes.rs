@@ -1,7 +1,11 @@
 use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use axum::{
-    error_handling::HandleErrorLayer, extract::DefaultBodyLimit, http::Method, middleware,
-    routing::get, Router,
+    error_handling::HandleErrorLayer,
+    extract::DefaultBodyLimit,
+    http::{header, Method},
+    middleware,
+    routing::get,
+    Router,
 };
 use std::{net::SocketAddr, time::Duration};
 use tower::ServiceBuilder;
@@ -21,6 +25,7 @@ pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAdd
     let cors = CorsLayer::new()
         // allow `GET`, `PUT` and `DELETE` when accessing the resource
         .allow_methods([Method::GET, Method::PUT, Method::DELETE])
+        .allow_headers(vec![header::ACCEPT, header::CONTENT_TYPE])
         // allow requests from any origin
         .allow_origin(Any);
     // move out
