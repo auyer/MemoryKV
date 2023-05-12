@@ -16,7 +16,7 @@ use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
 use tower::BoxError;
 
-use crate::{db::KVStore, errors::KVError};
+use crate::db::KVStore;
 
 pub async fn ping() -> Bytes {
     Bytes::from("pong")
@@ -196,21 +196,10 @@ async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: Arc<KVStore>, m
         }
     });
 
-    // task to send heatbeat to the other listeners
-    let mut heartbeat_task = tokio::spawn(async move {
-        loop {
-            if state.send_heartbeat(addr).is_err() {
-                break;
-            };
-            sleep(Duration::from_secs(60)).await;
-        }
-    });
-
     // If any one of the tasks run to completion, we abort the other.
     tokio::select! {
         _ = (&mut wal_task) => wal_task.abort(),
         _ = (&mut client_messages) => client_messages.abort(),
-        _ = (&mut heartbeat_task) => heartbeat_task.abort(),
     };
     // this handler is missing a proper disconnect
 
