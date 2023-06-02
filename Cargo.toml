@@ -11,15 +11,15 @@ futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
 ] }
-tokio = { version = "1.0", features = ["full"] }
-tokio-tungstenite = "0.18.0"
+tokio = { version = "1.28", features = ["full"] }
+tokio-tungstenite = "0.19"
 tower = { version = "0.4", features = [
     "util",
     "timeout",
     "load-shed",
     "limit",
 ] }
-tower-http = { version = "0.4.0", features = [
+tower-http = { version = "0.4", features = [
     "cors",
     "timeout",
     "trace",
@@ -34,11 +34,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1.0", features = ["derive"] }
 metrics = "0.21"
 metrics-exporter-prometheus = "0.12"
-envy = "0.4.2"
-bytes = "1.4.0"
-thiserror = "1.0.40"
-parking_lot = "0.12.1"
-headers = "0.3.8"
+envy = "0.4"
+bytes = "1.4"
+thiserror = "1.0"
+parking_lot = "0.12"
+headers = "0.3"
 
 [profile.release]
 opt-level = 3
