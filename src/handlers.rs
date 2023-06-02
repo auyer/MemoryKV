@@ -11,9 +11,8 @@ use axum::{
     response::IntoResponse,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
+use std::borrow::Cow;
 use std::net::SocketAddr;
-use std::{borrow::Cow, sync::Arc};
-use tokio::time::{sleep, Duration};
 use tower::BoxError;
 
 use crate::db::KVStore;
@@ -24,7 +23,7 @@ pub async fn ping() -> Bytes {
 
 pub async fn kv_get(
     Path(key): Path<String>,
-    State(kvstore): State<Arc<KVStore>>,
+    State(kvstore): State<KVStore>,
 ) -> Result<Bytes, StatusCode> {
     match kvstore.get(&key) {
         Some(value) => Ok(value),
@@ -34,7 +33,7 @@ pub async fn kv_get(
 
 pub async fn kv_set(
     Path(key): Path<String>,
-    State(kvstore): State<Arc<KVStore>>,
+    State(kvstore): State<KVStore>,
     bytes: Bytes,
 ) -> Result<Bytes, StatusCode> {
     match kvstore.insert(&key, bytes) {
@@ -45,7 +44,7 @@ pub async fn kv_set(
 
 pub async fn remove_key(
     Path(key): Path<String>,
-    State(kvstore): State<Arc<KVStore>>,
+    State(kvstore): State<KVStore>,
 ) -> Result<Bytes, StatusCode> {
     match kvstore.remove(&key) {
         Some(value) => Ok(value),
@@ -55,7 +54,7 @@ pub async fn remove_key(
 
 pub async fn remove_prefix(
     Path(key): Path<String>,
-    State(kvstore): State<Arc<KVStore>>,
+    State(kvstore): State<KVStore>,
 ) -> axum::Json<Vec<String>> {
     kvstore
         .remove_with_prefix(&key)
@@ -64,11 +63,11 @@ pub async fn remove_prefix(
         .into()
 }
 
-pub async fn remove_all_keys(State(kvstore): State<Arc<KVStore>>) -> Result<(), StatusCode> {
+pub async fn remove_all_keys(State(kvstore): State<KVStore>) -> Result<(), StatusCode> {
     Ok(kvstore.remove_all())
 }
 
-pub async fn list_keys(State(kvstore): State<Arc<KVStore>>) -> axum::Json<Vec<String>> {
+pub async fn list_keys(State(kvstore): State<KVStore>) -> axum::Json<Vec<String>> {
     kvstore
         .list_keys()
         .into_iter()
@@ -78,7 +77,7 @@ pub async fn list_keys(State(kvstore): State<Arc<KVStore>>) -> axum::Json<Vec<St
 
 pub async fn list_keys_with_prefix(
     Path(prefix): Path<String>,
-    State(kvstore): State<Arc<KVStore>>,
+    State(kvstore): State<KVStore>,
 ) -> axum::Json<Vec<String>> {
     kvstore
         .list_keys_with_prefix(&prefix)
@@ -110,7 +109,7 @@ pub async fn ws_handler(
     content_type: Option<TypedHeader<ContentType>>,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    State(kvstore): State<Arc<KVStore>>,
+    State(kvstore): State<KVStore>,
 ) -> impl IntoResponse {
     let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
         user_agent.to_string()
@@ -137,7 +136,7 @@ enum WalType {
 }
 
 // returns the WAL via websocket
-async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: Arc<KVStore>, mode: WalType) {
+async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: KVStore, mode: WalType) {
     // By splitting, we can send and receive at the same time.
 
     let (mut sender, mut receiver) = stream.split();

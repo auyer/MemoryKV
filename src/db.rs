@@ -6,26 +6,23 @@ use std::net::SocketAddr;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::broadcast;
 
-pub type KVStoreConn = Arc<KVStore>;
-
+#[derive(Clone)]
 pub struct KVStore {
-    db: RwLock<HashMap<String, Bytes>>,
+    db: Arc<RwLock<HashMap<String, Bytes>>>,
     wal_tx: broadcast::Sender<KVWAL>,
-    wal_rx: broadcast::Receiver<KVWAL>,
 }
 
 impl KVStore {
-    pub fn new() -> Arc<KVStore> {
-        return Arc::new(KVStore::default());
+    pub fn new() -> KVStore {
+        return KVStore::default();
     }
 
     pub fn default() -> KVStore {
-        let (wal_tx, wal_rx) = broadcast::channel::<KVWAL>(100);
+        let (wal_tx, _) = broadcast::channel::<KVWAL>(100);
 
         KVStore {
-            db: RwLock::new(HashMap::new()),
+            db: Arc::new(RwLock::new(HashMap::new())),
             wal_tx,
-            wal_rx,
         }
     }
 
