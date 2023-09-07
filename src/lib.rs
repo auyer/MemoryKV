@@ -5,4 +5,4 @@ pub mod handlers;
 pub mod metrics;
 pub mod routes;
 pub mod shutdown;
-pub mod wal;
+pub mod states;
