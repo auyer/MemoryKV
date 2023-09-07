@@ -12,7 +12,7 @@ futures-util = { version = "0.3", default-features = false, features = [
     "std",
 ] }
 tokio = { version = "1.28", features = ["full"] }
-tokio-tungstenite = "0.19"
+tokio-tungstenite = "0.20"
 tower = { version = "0.4", features = [
     "util",
     "timeout",
