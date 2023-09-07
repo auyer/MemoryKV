@@ -8,8 +8,15 @@ use tokio::sync::broadcast;
 
 #[derive(Clone)]
 pub struct KVStore {
-    db: Arc<RwLock<HashMap<String, Bytes>>>,
+    db: Arc<RwLock<db>>,
     wal_tx: broadcast::Sender<KVWAL>,
+}
+
+#[derive(Clone, Default)]
+struct db {
+    // Hash map chosed fort the in memory data storage
+    // it is easy to work with, and has O(1) read and write on average
+    data: HashMap<String, Bytes>,
 }
 
 impl KVStore {
@@ -21,12 +28,12 @@ impl KVStore {
         let (wal_tx, _) = broadcast::channel::<KVWAL>(100);
 
         KVStore {
-            db: Arc::new(RwLock::new(HashMap::new())),
+            db: Arc::new(RwLock::new(db {
+                ..Default::default()
+            })),
             wal_tx,
         }
     }
-
-    // fn send_wal(&self)
 
     pub fn subscribe(&self) -> broadcast::Receiver<KVWAL> {
         self.wal_tx.subscribe()
@@ -43,22 +50,26 @@ impl KVStore {
         self.wal_tx.send(KVWAL::Read {
             key: key.to_string(),
         });
-        self.db.read().get(key).cloned()
+        self.db.read().data.get(key).cloned()
     }
 
-    pub fn insert(&self, key: &str, value: Bytes) -> Option<Bytes> {
+    pub fn insert(
+        &self,
+        key: &str,
+        value: Bytes,
+    ) -> Option<Bytes> {
         self.wal_tx.send(KVWAL::Insert {
             key: key.to_string(),
             value: value.clone(),
         });
-        self.db.write().insert(key.to_string(), value)
+        self.db.write().data.insert(key.to_string(), value)
     }
 
     pub fn remove(&self, key: &str) -> Option<Bytes> {
         self.wal_tx.send(KVWAL::Delete {
             key: key.to_string(),
         });
-        self.db.write().remove(key)
+        self.db.write().data.remove(key)
     }
 
     pub fn remove_with_prefix(&self, key: &str) -> Vec<String> {
@@ -66,7 +77,7 @@ impl KVStore {
             key: key.to_string(),
         });
         let mut removed_keys = Vec::new();
-        self.db.write().retain(|k, _| {
+        self.db.write().data.retain(|k, _| {
             if k.starts_with(key) {
                 removed_keys.push(k.to_string());
                 false
@@ -79,13 +90,14 @@ impl KVStore {
 
     pub fn remove_all(&self) {
         self.wal_tx.send(KVWAL::DeleteAll);
-        self.db.write().clear();
+        self.db.write().data.clear();
     }
 
     pub fn list_keys(&self) -> Vec<String> {
         self.wal_tx.send(KVWAL::List);
         self.db
             .read()
+            .data
             .keys()
             .map(|key| key.to_string())
             .collect::<Vec<String>>()
@@ -97,6 +109,7 @@ impl KVStore {
         });
         self.db
             .read()
+            .data
             .keys()
             .filter(|key| key.starts_with(prefix))
             .map(|key| key.to_string())
