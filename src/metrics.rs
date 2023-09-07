@@ -46,10 +46,10 @@ fn setup_metrics_recorder() -> PrometheusHandle {
 }
 
 pub fn create_tracing_layer() -> TraceLayer<SharedClassifier<ServerErrorsAsFailures>> {
-    return TraceLayer::new_for_http()
+    TraceLayer::new_for_http()
         .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
         .on_response(trace::DefaultOnResponse::new().level(Level::INFO))
-        .on_failure(trace::DefaultOnFailure::new().level(Level::INFO));
+        .on_failure(trace::DefaultOnFailure::new().level(Level::INFO))
 }
 
 pub async fn track_metrics<B>(req: Request<B>, next: Next<B>) -> impl IntoResponse {

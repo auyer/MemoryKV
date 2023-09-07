@@ -21,7 +21,7 @@ struct db {
 
 impl KVStore {
     pub fn new() -> KVStore {
-        return KVStore::default();
+        KVStore::default()
     }
 
     pub fn default() -> KVStore {

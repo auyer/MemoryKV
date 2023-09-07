@@ -64,7 +64,8 @@ pub async fn remove_prefix(
 }
 
 pub async fn remove_all_keys(State(kvstore): State<KVStore>) -> Result<(), StatusCode> {
-    Ok(kvstore.remove_all())
+    kvstore.remove_all();
+    Ok(())
 }
 
 pub async fn list_keys(State(kvstore): State<KVStore>) -> axum::Json<Vec<String>> {

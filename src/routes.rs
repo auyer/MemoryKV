@@ -67,5 +67,5 @@ pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAdd
         .layer(metrics::create_tracing_layer())
         .layer(middleware::from_fn(metrics::track_metrics))
         .with_state(shared_state.clone());
-    return app.into_make_service_with_connect_info::<SocketAddr>();
+    app.into_make_service_with_connect_info::<SocketAddr>()
 }
