@@ -1,5 +1,6 @@
 use crate::errors::KVError;
 use crate::states::States;
+use crate::wal::WAL;
 use bytes::Bytes;
 use parking_lot::RwLock;
 use std::net::SocketAddr;
@@ -8,16 +9,19 @@ use tokio::sync::broadcast;
 
 #[derive(Clone)]
 pub struct KVStore {
-    db: Arc<RwLock<db>>,
+    db: Arc<RwLock<DB>>,
     wal_tx: broadcast::Sender<States>,
 }
 
 #[derive(Clone, Default)]
-struct db {
+struct DB {
     // Hash map chosed fort the in memory data storage
     // it is easy to work with, and has O(1) read and write on average
     data: HashMap<String, Bytes>,
-    //
+    // WAL is a vector of tuples, where the first element is the key and the second is the value
+    // this is used to keep track of the changes that are made to the data store
+    // A vector was used to use a continuous block of memory, and tuples were used to keep the key and value together
+    wal: WAL,
 }
 
 impl KVStore {
@@ -29,7 +33,8 @@ impl KVStore {
         let (wal_tx, _) = broadcast::channel::<States>(100);
 
         KVStore {
-            db: Arc::new(RwLock::new(db {
+            db: Arc::new(RwLock::new(DB {
+                // wal: Vec::with_capacity(10_00),
                 ..Default::default()
             })),
             wal_tx,
@@ -59,6 +64,7 @@ impl KVStore {
             key: key.to_string(),
             value: value.clone(),
         });
+        self.db.write().wal.insert(key, value.clone());
         self.db.write().data.insert(key.to_string(), value)
     }
 
@@ -66,6 +72,8 @@ impl KVStore {
         self.wal_tx.send(States::Delete {
             key: key.to_string(),
         });
+
+        self.db.write().wal.delete(key);
         self.db.write().data.remove(key)
     }
 
@@ -74,6 +82,7 @@ impl KVStore {
             key: key.to_string(),
         });
         let mut removed_keys = Vec::new();
+        self.db.write().wal.delete_prefix(key);
         self.db.write().data.retain(|k, _| {
             if k.starts_with(key) {
                 removed_keys.push(k.to_string());
@@ -87,6 +96,7 @@ impl KVStore {
 
     pub fn remove_all(&self) {
         self.wal_tx.send(States::DeleteAll);
+        self.db.write().wal.delete_all();
         self.db.write().data.clear();
     }
 
