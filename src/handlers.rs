@@ -15,6 +15,7 @@ use std::borrow::Cow;
 use std::net::SocketAddr;
 use tower::BoxError;
 
+use crate::actions::ActionBroadcaster;
 use crate::db::KVStore;
 
 pub async fn ping() -> Bytes {
@@ -24,9 +25,13 @@ pub async fn ping() -> Bytes {
 pub async fn kv_get(
     Path(key): Path<String>,
     State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
 ) -> Result<Bytes, StatusCode> {
     match kvstore.get(&key) {
-        Some(value) => Ok(value),
+        Some(value) => {
+            actions.get(&key);
+            Ok(value)
+        }
         None => Ok(bytes::Bytes::new()),
     }
 }
@@ -34,10 +39,14 @@ pub async fn kv_get(
 pub async fn kv_set(
     Path(key): Path<String>,
     State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
     bytes: Bytes,
 ) -> Result<Bytes, StatusCode> {
     match kvstore.insert(&key, bytes) {
-        Some(value) => Ok(value),
+        Some(value) => {
+            actions.insert(&key, value.clone());
+            Ok(value)
+        }
         None => Ok(bytes::Bytes::new()),
     }
 }
@@ -45,9 +54,13 @@ pub async fn kv_set(
 pub async fn remove_key(
     Path(key): Path<String>,
     State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
 ) -> Result<Bytes, StatusCode> {
     match kvstore.remove(&key) {
-        Some(value) => Ok(value),
+        Some(value) => {
+            actions.remove(&key);
+            Ok(value)
+        }
         None => Err(StatusCode::NOT_FOUND),
     }
 }
@@ -55,36 +68,51 @@ pub async fn remove_key(
 pub async fn remove_prefix(
     Path(key): Path<String>,
     State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
 ) -> axum::Json<Vec<String>> {
-    kvstore
+    let res = kvstore
         .remove_with_prefix(&key)
         .into_iter()
         .collect::<Vec<String>>()
-        .into()
+        .into();
+    actions.remove_with_prefix(&key);
+    res
 }
 
-pub async fn remove_all_keys(State(kvstore): State<KVStore>) -> Result<(), StatusCode> {
+pub async fn remove_all_keys(
+    State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
+) -> Result<(), StatusCode> {
     kvstore.remove_all();
+    actions.remove_all();
     Ok(())
 }
 
-pub async fn list_keys(State(kvstore): State<KVStore>) -> axum::Json<Vec<String>> {
-    kvstore
+pub async fn list_keys(
+    State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
+) -> axum::Json<Vec<String>> {
+    let res = kvstore
         .list_keys()
         .into_iter()
         .collect::<Vec<String>>()
-        .into()
+        .into();
+    actions.list_keys();
+    res
 }
 
 pub async fn list_keys_with_prefix(
     Path(prefix): Path<String>,
     State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
 ) -> axum::Json<Vec<String>> {
-    kvstore
+    let res = kvstore
         .list_keys_with_prefix(&prefix)
         .into_iter()
         .collect::<Vec<String>>()
-        .into()
+        .into();
+    actions.list_keys_with_prefix(&prefix);
+    res
 }
 
 pub async fn handle_error(error: BoxError) -> impl IntoResponse {
@@ -110,7 +138,7 @@ pub async fn ws_handler(
     content_type: Option<TypedHeader<ContentType>>,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    State(kvstore): State<KVStore>,
+    State(actions): State<ActionBroadcaster>,
 ) -> impl IntoResponse {
     let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
         user_agent.to_string()
@@ -124,11 +152,11 @@ pub async fn ws_handler(
         if content_type.0 == ContentType::octet_stream() {
             tracing::info!("Client {} requested Binary protocol", addr);
             return ws
-                .on_upgrade(move |socket| wal_handler(socket, addr, kvstore, WalType::Binary));
+                .on_upgrade(move |socket| wal_handler(socket, addr, actions, WalType::Binary));
         }
     }
     tracing::info!("Client {} requested Textual protocol", addr);
-    ws.on_upgrade(move |socket| wal_handler(socket, addr, kvstore, WalType::Textual))
+    ws.on_upgrade(move |socket| wal_handler(socket, addr, actions, WalType::Textual))
 }
 
 enum WalType {
@@ -137,7 +165,12 @@ enum WalType {
 }
 
 // returns the WAL via websocket
-async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: KVStore, mode: WalType) {
+async fn wal_handler(
+    stream: WebSocket,
+    addr: SocketAddr,
+    actions: ActionBroadcaster,
+    mode: WalType,
+) {
     // By splitting, we can send and receive at the same time.
 
     let (mut sender, mut receiver) = stream.split();
@@ -148,7 +181,7 @@ async fn wal_handler(stream: WebSocket, addr: SocketAddr, state: KVStore, mode: 
     };
     // We subscribe *before* sending the "joined" message, so that we will also
     // display it to our client.
-    let mut rx = state.subscribe();
+    let mut rx = actions.subscribe();
 
     // Spawn the first task that will receive messages from the Clients
     let mut client_messages = tokio::spawn(async move {

@@ -1,4 +1,4 @@
-use crate::states;
+use crate::actions;
 use thiserror::Error;
 /// Errors that can happen when using this service
 
@@ -9,6 +9,6 @@ pub enum KVError {
     #[error("data store unavailable")]
     WALChannelError {
         #[from]
-        source: tokio::sync::broadcast::error::SendError<states::States>,
+        source: tokio::sync::broadcast::error::SendError<actions::Actions>,
     },
 }
