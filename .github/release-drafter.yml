@@ -25,6 +25,9 @@ categories:
   - title: "🤖 Dependencies"
     labels:
       - "🤖 Dependencies"
+  - title: "🏗️ Refactor"
+    labels:
+      - "🏗️ Refactor"
 change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
 change-title-escapes: '\<*_&'
 version-resolver:
