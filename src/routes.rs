@@ -82,6 +82,8 @@ pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAdd
         .route("/ping", get(handlers::ping));
 
     let app = Router::new()
+        .merge(rest.with_state(app_state.clone()))
+        .merge(stream.with_state(actions_bc.clone()))
         .layer((
             DefaultBodyLimit::disable(),
             RequestBodyLimitLayer::new(1024 * 5_000 /* ~5mb */),
@@ -98,9 +100,7 @@ pub fn build_app() -> IntoMakeServiceWithConnectInfo<Router, std::net::SocketAdd
                 .layer(TraceLayer::new_for_http()),
         )
         .layer(metrics::create_tracing_layer())
-        .layer(middleware::from_fn(metrics::track_metrics))
-        .merge(rest.with_state(app_state.clone()))
-        .merge(stream.with_state(actions_bc.clone()));
+        .layer(middleware::from_fn(metrics::track_metrics));
 
     app.into_make_service_with_connect_info::<SocketAddr>()
 }
