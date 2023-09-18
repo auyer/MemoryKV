@@ -8,6 +8,8 @@ pub struct Configuration {
     pub metrics_port: u16,
     #[serde(default = "default_as_false")]
     pub debug: bool,
+    #[serde(default = "default_as_false")]
+    pub trace: bool,
 }
 
 fn default_as_false() -> bool {

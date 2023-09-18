@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.6", features = ["http2", "headers", "ws"] }
+axum = { version = "0.6", features = ["http2", "headers", "ws", "tracing"] }
 hyper = { version = "0.14", features = ["full"] }
 futures = "0.3"
 futures-util = { version = "0.3", default-features = false, features = [
@@ -17,6 +17,7 @@ tower = { version = "0.4", features = [
     "util",
     "timeout",
     "load-shed",
+    "filter",
     "limit",
 ] }
 tower-http = { version = "0.4", features = [

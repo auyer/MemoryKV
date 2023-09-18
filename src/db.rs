@@ -1,8 +1,6 @@
-use crate::actions::Actions;
-use crate::errors::KVError;
 use bytes::Bytes;
 use parking_lot::RwLock;
-use std::net::SocketAddr;
+
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Clone)]

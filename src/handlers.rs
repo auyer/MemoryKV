@@ -189,14 +189,20 @@ async fn wal_handler(
             match msg {
                 Message::Close(_) => return,
                 Message::Ping(_) => {
-                    tracing::info!("Ping");
-                    // let _ = tx.send(format!("{}: {}", name, text));
+                    tracing::debug!("Client {} sent Ping", addr);
                 }
                 Message::Pong(_) => {
-                    tracing::info!("Pong");
+                    tracing::debug!("Client {} sent Pong", addr);
                 }
-                _ => {
-                    tracing::info!("ANY");
+                Message::Text(text) => {
+                    tracing::debug!("Client {} sent message: {}", addr, text);
+                }
+                Message::Binary(bin) => {
+                    tracing::debug!(
+                        "Client {} sent message: {}",
+                        addr,
+                        String::from_utf8_lossy(&bin)
+                    )
                 }
             }
             // Add username before message.
@@ -207,22 +213,38 @@ async fn wal_handler(
     let mut wal_task = tokio::spawn(async move {
         match mode {
             WalType::Binary => {
+                tracing::debug!("New WS Binary connection for {}", addr);
                 while let Ok(msg) = rx.recv().await {
+                    tracing::info!("Sending Binary WAL message to {}", addr);
                     // In any websocket error, break loop.
-                    if sender
-                        .send(Message::Binary(msg.to_bytes().to_vec()))
-                        .await
-                        .is_err()
-                    {
-                        break;
+                    match sender.send(Message::Binary(msg.to_bytes().to_vec())).await {
+                        Ok(_) => {
+                            tracing::debug!("Success sending Binary WAL message to {}", addr);
+                        }
+                        Err(e) => {
+                            tracing::debug!("Error sending Binary WAL message to {} : {}", addr, e);
+                            break;
+                        }
                     }
                 }
             }
             WalType::Textual => {
+                tracing::debug!("New WS Textual connection for {}", addr);
                 while let Ok(msg) = rx.recv().await {
+                    tracing::debug!("Sending Textual WAL message to {}", addr);
                     // In any websocket error, break loop.
-                    if sender.send(Message::Text(msg.to_string())).await.is_err() {
-                        break;
+                    match sender.send(Message::Text(msg.to_string())).await {
+                        Ok(_) => {
+                            tracing::debug!("Success sending Textual WAL message to {}", addr);
+                        }
+                        Err(e) => {
+                            tracing::debug!(
+                                "Error sending Textual WAL message to {} : {}",
+                                addr,
+                                e
+                            );
+                            break;
+                        }
                     }
                 }
             }

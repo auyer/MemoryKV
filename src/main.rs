@@ -13,7 +13,9 @@ async fn main() {
 
     let mut level = Level::INFO;
     if config.debug {
-        // level = Level::DEBUG;
+        level = Level::DEBUG;
+    }
+    if config.trace {
         level = Level::TRACE;
     }
     let subscriber = FmtSubscriber::builder().with_max_level(level).finish();

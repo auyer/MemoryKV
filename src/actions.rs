@@ -20,16 +20,19 @@ impl ActionBroadcaster {
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<Actions> {
+        tracing::debug!("Subscribing to actions");
         self.status_tx.subscribe()
     }
 
     pub fn send_heartbeat(&self, addr: SocketAddr) -> Result<(), KVError> {
+        tracing::debug!("Sending Heartbeat");
         self.status_tx.send(Actions::Heartbeat { addr })?;
 
         Ok(())
     }
 
     pub fn get(&self, key: &str) -> Result<(), KVError> {
+        tracing::debug!("Sending a Get action");
         self.status_tx.send(Actions::Read {
             key: key.to_string(),
         })?;
@@ -38,6 +41,7 @@ impl ActionBroadcaster {
     }
 
     pub fn insert(&self, key: &str, value: Bytes) -> Result<(), KVError> {
+        tracing::debug!("Sending a Insert action");
         self.status_tx.send(Actions::Insert {
             key: key.to_string(),
             value: value.clone(),
@@ -47,6 +51,7 @@ impl ActionBroadcaster {
     }
 
     pub fn remove(&self, key: &str) -> Result<(), KVError> {
+        tracing::debug!("Sending a Remove action");
         self.status_tx.send(Actions::Delete {
             key: key.to_string(),
         })?;
@@ -54,6 +59,7 @@ impl ActionBroadcaster {
     }
 
     pub fn remove_with_prefix(&self, key: &str) -> Result<(), KVError> {
+        tracing::debug!("Sending a Remove with Prefix action");
         self.status_tx.send(Actions::DeletePrefix {
             key: key.to_string(),
         })?;
@@ -61,16 +67,19 @@ impl ActionBroadcaster {
     }
 
     pub fn remove_all(&self) -> Result<(), KVError> {
+        tracing::debug!("Sending a Remove All action");
         self.status_tx.send(Actions::DeleteAll)?;
         Ok(())
     }
 
     pub fn list_keys(&self) -> Result<(), KVError> {
+        tracing::debug!("Sending a List Keys action");
         self.status_tx.send(Actions::List)?;
         Ok(())
     }
 
     pub fn list_keys_with_prefix(&self, prefix: &str) -> Result<(), KVError> {
+        tracing::debug!("Sending a List Keys With prefix action");
         self.status_tx.send(Actions::ListPrefix {
             prefix: prefix.to_string(),
         })?;
