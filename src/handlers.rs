@@ -27,11 +27,9 @@ pub async fn kv_get(
     State(kvstore): State<KVStore>,
     State(actions): State<ActionBroadcaster>,
 ) -> Result<Bytes, StatusCode> {
+    actions.get(&key);
     match kvstore.get(&key) {
-        Some(value) => {
-            actions.get(&key);
-            Ok(value)
-        }
+        Some(value) => Ok(value),
         None => Ok(bytes::Bytes::new()),
     }
 }
@@ -42,11 +40,9 @@ pub async fn kv_set(
     State(actions): State<ActionBroadcaster>,
     bytes: Bytes,
 ) -> Result<Bytes, StatusCode> {
+    actions.insert(&key, bytes.clone());
     match kvstore.insert(&key, bytes) {
-        Some(value) => {
-            actions.insert(&key, value.clone());
-            Ok(value)
-        }
+        Some(value) => Ok(value),
         None => Ok(bytes::Bytes::new()),
     }
 }
@@ -56,11 +52,9 @@ pub async fn remove_key(
     State(kvstore): State<KVStore>,
     State(actions): State<ActionBroadcaster>,
 ) -> Result<Bytes, StatusCode> {
+    actions.remove(&key);
     match kvstore.remove(&key) {
-        Some(value) => {
-            actions.remove(&key);
-            Ok(value)
-        }
+        Some(value) => Ok(value),
         None => Err(StatusCode::NOT_FOUND),
     }
 }
@@ -70,21 +64,20 @@ pub async fn remove_prefix(
     State(kvstore): State<KVStore>,
     State(actions): State<ActionBroadcaster>,
 ) -> axum::Json<Vec<String>> {
-    let res = kvstore
+    actions.remove_with_prefix(&key);
+    kvstore
         .remove_with_prefix(&key)
         .into_iter()
         .collect::<Vec<String>>()
-        .into();
-    actions.remove_with_prefix(&key);
-    res
+        .into()
 }
 
 pub async fn remove_all_keys(
     State(kvstore): State<KVStore>,
     State(actions): State<ActionBroadcaster>,
 ) -> Result<(), StatusCode> {
-    kvstore.remove_all();
     actions.remove_all();
+    kvstore.remove_all();
     Ok(())
 }
 
@@ -92,13 +85,12 @@ pub async fn list_keys(
     State(kvstore): State<KVStore>,
     State(actions): State<ActionBroadcaster>,
 ) -> axum::Json<Vec<String>> {
-    let res = kvstore
+    actions.list_keys();
+    kvstore
         .list_keys()
         .into_iter()
         .collect::<Vec<String>>()
-        .into();
-    actions.list_keys();
-    res
+        .into()
 }
 
 pub async fn list_keys_with_prefix(
@@ -106,13 +98,12 @@ pub async fn list_keys_with_prefix(
     State(kvstore): State<KVStore>,
     State(actions): State<ActionBroadcaster>,
 ) -> axum::Json<Vec<String>> {
-    let res = kvstore
+    actions.list_keys_with_prefix(&prefix);
+    kvstore
         .list_keys_with_prefix(&prefix)
         .into_iter()
         .collect::<Vec<String>>()
-        .into();
-    actions.list_keys_with_prefix(&prefix);
-    res
+        .into()
 }
 
 pub async fn handle_error(error: BoxError) -> impl IntoResponse {
@@ -222,7 +213,7 @@ async fn wal_handler(
                             tracing::debug!("Success sending Binary WAL message to {}", addr);
                         }
                         Err(e) => {
-                            tracing::debug!("Error sending Binary WAL message to {} : {}", addr, e);
+                            tracing::error!("Error sending Binary WAL message to {} : {}", addr, e);
                             break;
                         }
                     }
@@ -238,7 +229,7 @@ async fn wal_handler(
                             tracing::debug!("Success sending Textual WAL message to {}", addr);
                         }
                         Err(e) => {
-                            tracing::debug!(
+                            tracing::error!(
                                 "Error sending Textual WAL message to {} : {}",
                                 addr,
                                 e

@@ -14,7 +14,7 @@ impl ActionBroadcaster {
     }
 
     pub fn default() -> ActionBroadcaster {
-        let (status_tx, _) = broadcast::channel::<Actions>(100);
+        let (status_tx, _) = broadcast::channel::<Actions>(10);
 
         ActionBroadcaster { status_tx }
     }
