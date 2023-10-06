@@ -4,6 +4,8 @@ project(CMemoryKV)
 
 add_executable(${PROJECT_NAME} main.c)
 
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(libcurl REQUIRED IMPORTED_TARGET libcurl>=7.17.0)
 
