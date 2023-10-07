@@ -1,4 +1,5 @@
 #include <curl/curl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,7 +56,7 @@ memkv_client *memkv_client_new(char *host) {
 
 char *build_url(const char *host, const char *params) {
 	// snprintf returns the number of characters that would have been written if called with NULL
-	int sizeneeded = snprintf(NULL, 0, "%s/%s", host, params);
+	unsigned long sizeneeded = snprintf(NULL, 0, "%s/%s", host, params);
 	// use that number to allocate a buffer of the right size
 	char *url = malloc(sizeneeded + 1);
 	// write the string to the buffer
@@ -63,153 +64,211 @@ char *build_url(const char *host, const char *params) {
 	return url;
 }
 
+typedef struct {
+	bool success : 1;
+	union {
+		char *result;
+		char *error;
+	};
+} memkv_result;
+
 // Request functions:
 //
 
-char *memkv_get_key(struct memkv_client *client, const char *key) {
+memkv_result *make_curl_error(memkv_result *r, char *err) {
+	r->success = false;
+	// create and alloc error
+	unsigned long sizeneeded = snprintf(NULL, 0, "%s :%s", "Error from curl", err);
+	r->error = malloc(sizeneeded + 1);
+	sprintf(r->error, "%s :%s", "Error from curl", err);
+	return r;
+}
+
+memkv_result *init_memkv_result() {
+
+	memkv_result *r = malloc(sizeof(memkv_result));
+	memkv_result rinit = {.success = false, .error = ""};
+	r = &rinit;
+	return r;
+}
+
+memkv_result *memkv_get_key(struct memkv_client *client, const char *key) {
+	memkv_result *r = init_memkv_result();
 
 	CURL *curl;
 	CURLcode res;
 
 	curl = curl_easy_init();
-	if (curl) {
-		struct string s;
-		init_string(&s);
-
-		char *url = build_url(client->host, key);
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-		/* example.com is redirected, so we tell libcurl to follow redirection */
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
-
-		/* Perform the request, res will get the return code */
-		res = curl_easy_perform(curl);
-		/* Check for errors */
-		if (res != CURLE_OK) {
-			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-		}
-		/* always cleanup */
-		curl_easy_cleanup(curl);
-		free(url);
-		return (char *)s.ptr;
+	if (!curl) {
+		return make_curl_error(r, "Failed startig curl");
 	}
-	return 0;
+
+	struct string s;
+	init_string(&s);
+
+	char *url = build_url(client->host, key);
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	/* example.com is redirected, so we tell libcurl to follow redirection */
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+
+	/* Perform the request, res will get the return code */
+	res = curl_easy_perform(curl);
+	/* Check for errors */
+	if (res != CURLE_OK) {
+		r->success = false;
+		const char *err = curl_easy_strerror(res);
+		return make_curl_error(r, err);
+	}
+	/* always cleanup */
+	curl_easy_cleanup(curl);
+	free(url);
+
+	r->success = true;
+	r->result = malloc(strlen(s.ptr) + 1);
+
+	strcpy(r->result, s.ptr);
+	return r;
 }
 
-char *memkv_delete_key(struct memkv_client *client, const char *key) {
+memkv_result *memkv_delete_key(struct memkv_client *client, const char *key) {
+	memkv_result *r = init_memkv_result();
 
 	CURL *curl;
 	CURLcode res;
 
 	curl = curl_easy_init();
-	if (curl) {
-
-		struct string s;
-		init_string(&s);
-
-		char *url = build_url(client->host, key);
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-		/* example.com is redirected, so we tell libcurl to follow redirection */
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-		// set custom request to delete
-		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
-
-		/* Perform the request, res will get the return code */
-		res = curl_easy_perform(curl);
-		/* Check for errors */
-		if (res != CURLE_OK) {
-			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-		}
-		free(url);
-		return (char *)s.ptr;
+	if (!curl) {
+		return make_curl_error(r, "Failed startig curl");
 	}
-	return 0;
+
+	struct string s;
+	init_string(&s);
+
+	char *url = build_url(client->host, key);
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	/* example.com is redirected, so we tell libcurl to follow redirection */
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+	// set custom request to delete
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+
+	/* Perform the request, res will get the return code */
+	res = curl_easy_perform(curl);
+	/* Check for errors */
+	if (res != CURLE_OK) {
+		r->success = false;
+		const char *err = curl_easy_strerror(res);
+		return make_curl_error(r, err);
+	}
+	free(url);
+	r->success = true;
+	r->result = malloc(strlen(s.ptr) + 1);
+
+	strcpy(r->result, s.ptr);
+	return r;
 }
 
-char *memkv_put_key(struct memkv_client *client, const char *key, const char *put_body) {
+memkv_result *memkv_put_key(struct memkv_client *client, const char *key, const char *put_body) {
+	memkv_result *r = init_memkv_result();
+
 	CURL *curl;
 	CURLcode res;
 	// start the easy interface in curl
 	curl = curl_easy_init();
-	if (curl) {
-		struct string s;
-		init_string(&s);
-
-		char *url = build_url(client->host, key);
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-
-		struct curl_slist *headers = NULL;
-
-		/* default type with postfields is application/x-www-form-urlencoded,
-		   change it if you want */
-		headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-		/* pass on content in request body. When CURLOPT_POSTFIELDSIZE is not used,
-		curl does strlen to get the size. */
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, put_body);
-
-		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
-
-		/* override the POST implied by CURLOPT_POSTFIELDS
-		 *
-		 * Warning: CURLOPT_CUSTOMREQUEST is problematic, especially if you want
-		 * to follow redirects. Be aware.
-		 */
-
-		/* example.com is redirected, so we tell libcurl to follow redirection */
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-		/* Perform the request, res will get the return code */
-		res = curl_easy_perform(curl);
-		/* Check for errors */
-		if (res != CURLE_OK) {
-			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-		}
-		/* always cleanup */
-		curl_easy_cleanup(curl);
-
-		/* free headers */
-		curl_slist_free_all(headers);
-		free(url);
-		return (char *)s.ptr;
+	if (!curl) {
+		return make_curl_error(r, "Failed startig curl");
 	}
-	return 0;
+	struct string s;
+	init_string(&s);
+
+	char *url = build_url(client->host, key);
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+
+	struct curl_slist *headers = NULL;
+
+	/* default type with postfields is application/x-www-form-urlencoded,
+	   change it if you want */
+	headers = curl_slist_append(headers, "Content-Type: application/octet-stream");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+	/* pass on content in request body. When CURLOPT_POSTFIELDSIZE is not used,
+	curl does strlen to get the size. */
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, put_body);
+
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+
+	/* override the POST implied by CURLOPT_POSTFIELDS
+	 *
+	 * Warning: CURLOPT_CUSTOMREQUEST is problematic, especially if you want
+	 * to follow redirects. Be aware.
+	 */
+
+	/* example.com is redirected, so we tell libcurl to follow redirection */
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+	/* Perform the request, res will get the return code */
+	res = curl_easy_perform(curl);
+	/* Check for errors */
+	if (res != CURLE_OK) {
+		r->success = false;
+		const char *err = curl_easy_strerror(res);
+		return make_curl_error(r, err);
+	}
+	/* always cleanup */
+	curl_easy_cleanup(curl);
+
+	/* free headers */
+	curl_slist_free_all(headers);
+	free(url);
+	r->success = true;
+	r->result = malloc(strlen(s.ptr) + 1);
+
+	strcpy(r->result, s.ptr);
+	return r;
 }
 
-char *memkv_list_keys(struct memkv_client *client) {
+memkv_result *memkv_list_keys(struct memkv_client *client) {
+	memkv_result *r = init_memkv_result();
+
 	CURL *curl;
 	CURLcode res;
 
 	// start the easy interface in curl
 	curl = curl_easy_init();
-	if (curl) {
-		struct string s;
-		init_string(&s);
-
-		const char *key = "keys";
-		char *url = build_url(client->host, key);
-
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-		/* example.com is redirected, so we tell libcurl to follow redirection */
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
-
-		/* Perform the request, res will get the return code */
-		res = curl_easy_perform(curl);
-		/* Check for errors */
-		if (res != CURLE_OK) {
-			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-		}
-		/* always cleanup */
-		curl_easy_cleanup(curl);
-		free(url);
-		return (char *)s.ptr;
+	if (!curl) {
+		return make_curl_error(r, "Failed startig curl");
 	}
-	return 0;
+	struct string s;
+	init_string(&s);
+
+	const char *key = "keys";
+	char *url = build_url(client->host, key);
+
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	/* example.com is redirected, so we tell libcurl to follow redirection */
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+
+	/* Perform the request, res will get the return code */
+	res = curl_easy_perform(curl);
+	/* Check for errors */
+	if (res != CURLE_OK) {
+		r->success = false;
+		const char *err = curl_easy_strerror(res);
+		return make_curl_error(r, err);
+	}
+	/* always cleanup */
+	curl_easy_cleanup(curl);
+	free(url);
+
+	r->success = true;
+	r->result = malloc(strlen(s.ptr) + 1);
+
+	strcpy(r->result, s.ptr);
+	return r;
 }
