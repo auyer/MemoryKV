@@ -4,7 +4,6 @@
 #include <stdlib.h>
 
 void print_memkv_result(memkv_result *response) {
-	fprintf(stdout, "In print\n");
 	if (response->success) {
 		printf("Success: %s\n", response->result);
 	} else {
@@ -17,18 +16,20 @@ int main(void) {
 
 	client = memkv_client_new("http://localhost:8080");
 
-	char key[] = "c_sdk2";
+	memkv_result *response = malloc(sizeof(memkv_result));
+	
+  char key[] = "c_sdk";
+  char key2[] = "c_sdk2";
 
 	// put key
-	fprintf(stdout, "\nPut Key Request\n");
-
 	static const char put_body[] = "{"
 								   " \"name\" : \"c_sdk\","
 								   " \"content\" : \"json\""
 								   "}";
 
-	memkv_result *response = malloc(sizeof(memkv_result));
-	response = memkv_put_key(client, key, put_body);
+
+	fprintf(stdout, "\nPut Key Request\n");
+  response = memkv_put_key(client, key, put_body);
 
 	print_memkv_result(response);
 
@@ -43,10 +44,25 @@ int main(void) {
 	response = memkv_get_key(client, key);
 	print_memkv_result(response);
 
+  fprintf(stdout, "\nPut Key Request 2\n");
+  response = memkv_put_key(client, key2, put_body);
+
+	print_memkv_result(response);
+
+	// list key
+  fprintf(stdout, "\nList Keys Request 2\n");
+	response = memkv_list_keys(client);
+	print_memkv_result(response);
+
 	// delete key
 	fprintf(stdout, "\nMaking a delete Key Request\n");
 
 	response = memkv_delete_key(client, key);
+	print_memkv_result(response);
+
+	fprintf(stdout, "\nMaking a delete Key Request2\n");
+
+	response = memkv_delete_key(client, key2);
 	print_memkv_result(response);
 
 	free(client);
