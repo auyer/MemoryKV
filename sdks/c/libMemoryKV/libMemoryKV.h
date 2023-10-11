@@ -35,3 +35,12 @@ memkv_result *memkv_put_key(struct memkv_client *client, const char *key, const 
 
 // memkv_list_keys lists all the keys in the MemoryKV server
 memkv_result *memkv_list_keys(struct memkv_client *client);
+
+// memkv_list_keys_with_prefix lists all the keys in the MemoryKV server with a given prefix
+memkv_result *memkv_list_keys_with_prefix(struct memkv_client *client, const char *key_prefix);
+
+// memkv_delete_key deletes a key from the MemoryKV server, and return the keys that were deleted
+memkv_result *memkv_delete_keys_with_prefix(struct memkv_client *client, const char *key_prefix);
+
+// memkv_delete_all_keys deletes all keys from the MemoryKV server, and returns list of deletes keys
+memkv_result *memkv_delete_all_keys(struct memkv_client *client);

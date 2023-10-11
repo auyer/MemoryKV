@@ -1,6 +1,5 @@
 #include <curl/curl.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -47,6 +46,7 @@ size_t string_carrier_writefunc(void *ptr, size_t size, size_t nmemb, struct str
 	return size * nmemb;
 }
 
+// memkv_client
 typedef struct memkv_client {
 	char *host;
 } memkv_client;
@@ -300,6 +300,176 @@ memkv_result *memkv_list_keys(struct memkv_client *client) {
 	const char *key = "keys";
 	char *url = build_url(client->host, key);
 
+	// set custom request to delete
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, string_carrier_writefunc);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+
+	/* Perform the request, res will get the return code */
+	res = curl_easy_perform(curl);
+
+	/* always cleanup */
+	curl_easy_cleanup(curl);
+	free(url);
+
+	/* Check for errors */
+	if (res != CURLE_OK) {
+		r->success = false;
+		const char *err = curl_easy_strerror(res);
+		make_curl_error(r, err);
+		return r;
+	}
+
+	if (s.error_flag) {
+		make_curl_error(r, "Failed to get results from server");
+		return r;
+	}
+	r->success = true;
+	r->result = malloc(strlen(s.ptr) + 1);
+
+	strcpy(r->result, s.ptr);
+	return r;
+}
+
+memkv_result *memkv_list_keys_with_prefix(struct memkv_client *client, const char *key_prefix) {
+	memkv_result *r = init_memkv_result();
+
+	CURL *curl;
+	CURLcode res;
+
+	// start the easy interface in curl
+	curl = curl_easy_init();
+	if (!curl) {
+		make_curl_error(r, "Failed startig curl");
+		return r;
+	}
+	struct string_carrier s;
+	init_string_carrier(&s);
+	if (s.error_flag) {
+		make_curl_error(r, "Failed to initialize string_carrier");
+		return r;
+	}
+
+	const char *key = "keys";
+	char *url_part1 = build_url(client->host, key);
+	// TODO: build URL in one call
+	char *url = build_url(url_part1, key_prefix);
+	free(url_part1);
+
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, string_carrier_writefunc);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+
+	/* Perform the request, res will get the return code */
+	res = curl_easy_perform(curl);
+
+	/* always cleanup */
+	curl_easy_cleanup(curl);
+	free(url);
+
+	/* Check for errors */
+	if (res != CURLE_OK) {
+		r->success = false;
+		const char *err = curl_easy_strerror(res);
+		make_curl_error(r, err);
+		return r;
+	}
+
+	if (s.error_flag) {
+		make_curl_error(r, "Failed to get results from server");
+		return r;
+	}
+	r->success = true;
+	r->result = malloc(strlen(s.ptr) + 1);
+
+	strcpy(r->result, s.ptr);
+	return r;
+}
+
+memkv_result *memkv_delete_keys_with_prefix(struct memkv_client *client, const char *key_prefix) {
+	memkv_result *r = init_memkv_result();
+
+	CURL *curl;
+	CURLcode res;
+
+	curl = curl_easy_init();
+	if (!curl) {
+		make_curl_error(r, "Failed startig curl");
+		return r;
+	}
+
+	struct string_carrier s;
+	init_string_carrier(&s);
+	if (s.error_flag) {
+		make_curl_error(r, "Failed to initialize string_carrier");
+		return r;
+	}
+
+	const char *key = "keys";
+	char *url_part1 = build_url(client->host, key);
+	// TODO: build URL in one call
+	char *url = build_url(url_part1, key_prefix);
+	free(url_part1);
+
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+	// set custom request to delete
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, string_carrier_writefunc);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+
+	/* Perform the request, res will get the return code */
+	res = curl_easy_perform(curl);
+
+	/* always cleanup */
+	curl_easy_cleanup(curl);
+	free(url);
+
+	/* Check for errors */
+	if (res != CURLE_OK) {
+		const char *err = curl_easy_strerror(res);
+		make_curl_error(r, err);
+		return r;
+	}
+
+	if (s.error_flag) {
+		make_curl_error(r, "Failed to get results from server");
+		return r;
+	}
+	r->success = true;
+	r->result = malloc(strlen(s.ptr) + 1);
+
+	strcpy(r->result, s.ptr);
+	return r;
+}
+
+memkv_result *memkv_delete_all_keys(struct memkv_client *client) {
+	memkv_result *r = init_memkv_result();
+
+	CURL *curl;
+	CURLcode res;
+
+	// start the easy interface in curl
+	curl = curl_easy_init();
+	if (!curl) {
+		make_curl_error(r, "Failed startig curl");
+		return r;
+	}
+	struct string_carrier s;
+	init_string_carrier(&s);
+	if (s.error_flag) {
+		make_curl_error(r, "Failed to initialize string_carrier");
+		return r;
+	}
+
+	const char *key = "keys";
+	char *url = build_url(client->host, key);
+
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, string_carrier_writefunc);
