@@ -4,10 +4,11 @@
 #include <stdlib.h>
 
 void print_memkv_result(memkv_result *response) {
+	fprintf(stdout, "In print\n");
 	if (response->success) {
 		printf("Success: %s\n", response->result);
 	} else {
-		printf("Error: %s\n", response->error);
+		fprintf(stderr, "Error: %s\n", response->error);
 	}
 }
 
@@ -26,8 +27,9 @@ int main(void) {
 								   " \"content\" : \"json\""
 								   "}";
 
-	memkv_result *response;
+	memkv_result *response = malloc(sizeof(memkv_result));
 	response = memkv_put_key(client, key, put_body);
+
 	print_memkv_result(response);
 
 	fprintf(stdout, "\nList Keys Request\n");
