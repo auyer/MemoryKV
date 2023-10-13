@@ -12,15 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
 
     - name: CMake
       env:
         CC: clang
       run: cd ./sdks/c  && cmake -B ./build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     - name: reviewdog with clang-tidy
-      uses: arkedge/action-clang-tidy
+      uses: arkedge/action-clang-tidy@v1.2.0
       with:
         workdir: cd ./sdks/c/build
     - name: Build
