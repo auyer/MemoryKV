@@ -7,28 +7,37 @@ on:
       - '**.h'
 
 jobs:
-  build:
+  clang-tidy:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-
-    # Optionally generate compile_commands.json
-
-    - uses: ZedThree/clang-tidy-review@v0.14.0
-      id: review
+    - uses: actions/checkout@v2
       with:
-        # Tell clang-tidy-review the base directory.
-        # This will get replaced by the new working
-        # directory inside the action
-        base_dir: ./sdks/c/
-        config_file: ".clang-tidy"
-        cmake_command: 	cmake -S . -DCMAKE_EXPORT_COMPILE_COMMANDS=on -B build
-
-    # Uploads an artefact containing clang_fixes.json
-    - uses: ZedThree/clang-tidy-review/upload@v0.14.0
-      id: upload-review
-
-    # If there are any comments, fail the check
-    - if: steps.review.outputs.total_comments > 0
-      run: exit 1
+        fetch-depth: 2
+    - name: Install clang-tidy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy
+    - name: Prepare compile_commands.json
+      run: |
+        cd sdks/c/ && 
+        cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    - name: Create results directory
+      run: |
+        mkdir clang-tidy-result
+    - name: Analyze
+      run: |
+        git diff -U0 HEAD^ | clang-tidy-diff -p1 -path build -export-fixes clang-tidy-result/fixes.yml
+    - name: Run clang-tidy-pr-comments action
+      uses: platisd/clang-tidy-pr-comments@master
+      with:
+        # The GitHub token (or a personal access token)
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        # The path to the clang-tidy fixes generated previously
+        clang_tidy_fixes: clang-tidy-result/fixes.yml
+        # Optionally set to true if you want the Action to request
+        # changes in case warnings are found
+        request_changes: true
+        # Optionally set the number of comments per review
+        # to avoid GitHub API timeouts for heavily loaded
+        # pull requests
+        suggestions_per_comment: 10
