@@ -12,7 +12,7 @@ What I wanted to create:
 - In the Rust programming language
 - With a live feed of changes (it felt like a cool demo for my personal site)
 
-I started implementing an http web server using Axum. I did this because I am used to working with http and rest interfaces. I might implement my own connection method, but this will be fine for now.
+I started implementing an http web server using Axum. I did this because I am used to working with http and rest interfaces. I might implement my own connection protocol, but this will be fine for now.
 Since I was using Axum I also added a `/metrics` endpoint for Prometheus.
 
 The "database" part I created with a simple HashMap, and protected it behind a RWMutex.
@@ -38,5 +38,16 @@ A sample of the WAL received by a WebSocket client:
 ```
 
 The live demo is available in my personal website: https://rcpassos.me/projects/kv
-And the source to that is here:
-https://github.com/auyer/auyer.github.io/blob/main/src/lib/services.ts
+And the source for that is here:
+https://github.com/auyer/auyer.github.io/blob/main/src/lib/services.js
+
+# SDKs
+I am also creating SDKs for this project using different languages.
+Since the server uses REST with HTTP for the database interface, this is the main part that needs to be implemented in the SDKs.
+The Live Feed is implemented using WebSockets, and is a less important feature.
+
+
+| Feature/SDK    	| C 	| Rust 	
+|----------------	|---	|------	
+| Rest Endpoints 	| x 	|      	
+| Live Feed (WS) 	|   	|      	
