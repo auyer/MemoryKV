@@ -1,0 +1,15 @@
+[Unit]
+Description=MemoryKV server daemon github.com/auyer/MemoryKV
+
+# You may want to start after your network is ready
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/kv
+Restart=always
+PIDFile=/tmp/memorykv_pid
+Environment=PORT=80
+
+[Install]
+WantedBy=network-online.target
