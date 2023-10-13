@@ -25,6 +25,5 @@ jobs:
       with:
         workdir: ./sdks/c/
     - name: Build
+      working-directory: ./sdks/c/
       run: cmake -S . --build ./build
-      with:
-        workdir: ./sdks/c/
