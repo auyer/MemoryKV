@@ -15,7 +15,7 @@ jobs:
 
     # Optionally generate compile_commands.json
 
-    - uses: ZedThree/clang-tidy-review@v0.12.0
+    - uses: ZedThree/clang-tidy-review@v0.14.0
       id: review
       with:
         # Tell clang-tidy-review the base directory.
@@ -26,7 +26,7 @@ jobs:
         cmake_command: 	cmake -S . -DCMAKE_EXPORT_COMPILE_COMMANDS=on -B build
 
     # Uploads an artefact containing clang_fixes.json
-    - uses: ZedThree/clang-tidy-review/upload@v0.12.0
+    - uses: ZedThree/clang-tidy-review/upload@v0.14.0
       id: upload-review
 
     # If there are any comments, fail the check
