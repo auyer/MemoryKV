@@ -17,13 +17,16 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y curl libcurl4-openssl-dev
 
     - name: CMake
+      working-directory: ./sdks/c/
       env:
         CC: clang
       run: cmake -B ./build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
     - name: reviewdog with clang-tidy
       uses: arkedge/action-clang-tidy@v1.2.0
       with:
         workdir: ./sdks/c/
+
     - name: Build
       working-directory: ./sdks/c/
       run: cmake -S . --build ./build
