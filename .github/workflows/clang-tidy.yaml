@@ -16,7 +16,7 @@ jobs:
     - name: Install clang-tidy
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-tidy
+        sudo apt-get install -y clang-tidy curl libcurl4
     - name: Prepare compile_commands.json
       run: |
         cd sdks/c/ && 
@@ -30,8 +30,6 @@ jobs:
     - name: Run clang-tidy-pr-comments action
       uses: platisd/clang-tidy-pr-comments@master
       with:
-        # The GitHub token (or a personal access token)
-        github_token: ${{ secrets.GITHUB_TOKEN }}
         # The path to the clang-tidy fixes generated previously
         clang_tidy_fixes: clang-tidy-result/fixes.yml
         # Optionally set to true if you want the Action to request
