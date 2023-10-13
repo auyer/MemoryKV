@@ -1,0 +1,34 @@
+name: clang-tidy-review
+
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.h'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Optionally generate compile_commands.json
+
+    - uses: ZedThree/clang-tidy-review@v0.12.0
+      id: review
+      with:
+        # Tell clang-tidy-review the base directory.
+        # This will get replaced by the new working
+        # directory inside the action
+        base_dir: ./sdks/c/
+        config_file: ".clang-tidy"
+        cmake_command: 	cmake -S . -DCMAKE_EXPORT_COMPILE_COMMANDS=on -B build
+
+    # Uploads an artefact containing clang_fixes.json
+    - uses: ZedThree/clang-tidy-review/upload@v0.12.0
+      id: upload-review
+
+    # If there are any comments, fail the check
+    - if: steps.review.outputs.total_comments > 0
+      run: exit 1
