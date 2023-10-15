@@ -2,44 +2,48 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
 
 // string_carrier struct to store the body results from curl with easy reallocation
-struct string_carrier {
+typedef struct string_carrier {
 	char *ptr;
 	size_t len;
 	bool error_flag;
-};
+} string_carrier;
 
 // init_string_carrier initializes the string_carrier struct to store the body results from curl
 void init_string_carrier(struct string_carrier *s) {
-	s->len = 0;
-	s->ptr = malloc(s->len + 1);
-	s->error_flag = false;
 	if (s->ptr == NULL) {
-		// TODO: figure out a better way to handle errors in C
-		fprintf(stderr, "memkv client: Error in Callback, malloc() failed\n");
-		// skip exit and return error instead
-		// exit(EXIT_FAILURE);
-		s->error_flag = true;
+    s->len = 0;
+    s->ptr = malloc(s->len + 1);
+    s->error_flag = false;
 	} else {
-		s->ptr[0] = '\0';
-	}
+    memset(s, 0, sizeof *s);
+  }
 }
 
 // string_carrier_writefunc is the callback function to read the body from libcurl into a string_carrier
 size_t string_carrier_writefunc(void *ptr, size_t size, size_t nmemb, struct string_carrier *s) {
 	// new length to realocate response chunks from libcurl
 	size_t new_len = s->len + size * nmemb;
-	s->ptr = realloc(s->ptr, new_len + 1);
-	if (s->ptr == NULL) {
+	// s->ptr = realloc(s->ptr, new_len + 1);
+	void *const tmp = realloc(s->ptr, new_len + 1);
+	if (!tmp) {
 		// TODO: figure out a better way to handle errors in C
 		fprintf(stderr, "memkv client: Error in string_carrier_writefunc Callback, realloc() failed\n");
 		// skip exit and return error instead
 		// exit(EXIT_FAILURE);
 		s->error_flag = true;
+
+		/* realloc() failed to reallocate memory. The original memory is still
+		 * there and needs to be freed.
+		 */
+		// handle_failure();
 	} else {
+		/* Now s->ptr points to the new chunk of memory. */
+		s->ptr = tmp;
 		memcpy(s->ptr + s->len, ptr, size * nmemb);
-		s->ptr[new_len] = '\0';
 		s->len = new_len;
 	}
 
@@ -64,9 +68,9 @@ memkv_client *memkv_client_new(char *host) {
 
 char *build_url(const char *host, const char *params) {
 	// snprintf returns the number of characters that would have been written if called with NULL
-	unsigned long sizeneeded = snprintf(NULL, 0, "%s/%s", host, params);
+	unsigned long size_needed = snprintf(NULL, 0, "%s/%s", host, params);
 	// use that number to allocate a buffer of the right size
-	char *url = malloc(sizeneeded + 1);
+	char *url = malloc(size_needed + 1);
 	// write the string_carrier to the buffer
 	sprintf(url, "%s/%s", host, params);
 	return url;
@@ -92,11 +96,11 @@ void make_curl_error(memkv_result *r, const char *err) {
 		return;
 	}
 
-	unsigned long sizeneeded = snprintf(NULL, 0, "%s : %s", base_curl_error, err);
+	unsigned long size_needed = snprintf(NULL, 0, "%s : %s", base_curl_error, err);
 
-	r->error = malloc(sizeneeded + 1);
+	r->error = malloc(size_needed + 1);
 
-	snprintf(r->error, sizeneeded + 1, "%s : %s", base_curl_error, err);
+	snprintf(r->error, size_needed + 1, "%s : %s", base_curl_error, err);
 }
 
 // init_memkv_result initializes the memkv_result struct with success as false
