@@ -17,19 +17,15 @@ void init_string_carrier(string_carrier *s) {
 		printf("Error in init_string_carrier");
 		return;
 	}
-	s->len = 0;
+  memset(s, 0, sizeof *s);
 	s->ptr = malloc(s->len + 1);
-	s->error_flag = false;
+  memset(s->ptr, 0, sizeof *s->ptr);
+
 	if (s->ptr == NULL) {
-		// TODO: figure out a better way to handle errors in C
 		fprintf(stderr, "memkv client: Error in INIT, malloc() failed\n");
-		// skip exit and return error instead
-		// exit(EXIT_FAILURE);
 		s->error_flag = true;
-	} else {
-		s->ptr[0] = '\0';
-	}
-}
+	} 
+ }
 
 string_carrier *new_string_carrier() {
 	string_carrier *s = malloc(sizeof *s);
@@ -44,24 +40,16 @@ string_carrier *new_string_carrier() {
 // string_carrier_writefunc is the callback function to read the body from libcurl into a string_carrier
 size_t string_carrier_writefunc(void *ptr, size_t size, size_t nmemb, struct string_carrier *s) {
 	// new length to realocate response chunks from libcurl
-	size_t new_len = s->len + size * nmemb;
-	// s->ptr = realloc(s->ptr, new_len + 1);
+	size_t new_len = s->len + (size * nmemb);
 	void *const tmp = realloc(s->ptr, new_len + 1);
 	if (!tmp) {
-		// TODO: figure out a better way to handle errors in C
 		fprintf(stderr, "memkv client: Error in string_carrier_writefunc Callback, realloc() failed\n");
-		// skip exit and return error instead
-		// exit(EXIT_FAILURE);
 		s->error_flag = true;
-
-		/* realloc() failed to reallocate memory. The original memory is still
-		 * there and needs to be freed.
-		 */
-		// handle_failure();
 	} else {
 		/* Now s->ptr points to the new chunk of memory. */
 		s->ptr = tmp;
-		memcpy(s->ptr + s->len, ptr, size * nmemb);
+    // we already know the length of the string, so we can just copy it with memcpy instead of strlcpy
+		memcpy(s->ptr + s->len, ptr, new_len +1);
 		s->len = new_len;
 	}
 
@@ -219,8 +207,9 @@ memkv_result *memkv_execute_request(
 	}
 
 	r->success = true;
-	r->result = malloc(s->len + 1);
-	strlcpy(r->result, s->ptr, s->len + 1);
+  // updates the result pointer to point to the string_carrier->ptr
+  r-> result = s->ptr;
+  free(s);
 
 	return r;
 }
