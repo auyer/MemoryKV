@@ -25,7 +25,7 @@ jobs:
     - name: reviewdog with clang-tidy
       uses: arkedge/action-clang-tidy@v1.2.0
       with:
-        workdir: ./sdks/c/
+        workdir: ./sdks/c/build/
 
     - name: Build
       working-directory: ./sdks/c/
