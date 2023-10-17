@@ -12,25 +12,29 @@ typedef struct string_carrier {
 } string_carrier;
 
 // init_string_carrier initializes the string_carrier struct to store the body results from curl
-void init_string_carrier(string_carrier *s) {
-	if (s == NULL) {
-		printf("Error in init_string_carrier");
-		return;
-	}
-  memset(s, 0, sizeof *s);
+static void init_string_carrier(string_carrier *s) {
+	s->len = 0;
+	s->error_flag = false;
 	s->ptr = malloc(s->len + 1);
-  memset(s->ptr, 0, sizeof *s->ptr);
-
-	if (s->ptr == NULL) {
-		fprintf(stderr, "memkv client: Error in INIT, malloc() failed\n");
+	if (s->ptr != NULL) {
+		// set ptr as null terminator
+		s->ptr[0] = '\0';
+	} else {
+		// set error flag to true if malloc fails
 		s->error_flag = true;
-	} 
- }
+		fprintf(stderr, "memkv client: Error in INIT, malloc() failed\n");
+	}
+}
 
-string_carrier *new_string_carrier() {
+static string_carrier *new_string_carrier() {
 	string_carrier *s = malloc(sizeof *s);
+	if (!s) {
+		free(s);
+		return NULL;
+	}
 	init_string_carrier(s);
-	if (s == NULL || s->error_flag || s->ptr == NULL) {
+	if (s->error_flag || s->ptr == NULL) {
+		free(s);
 		printf("Error in new_string_carrier\n");
 		return NULL;
 	}
@@ -38,7 +42,7 @@ string_carrier *new_string_carrier() {
 }
 
 // string_carrier_writefunc is the callback function to read the body from libcurl into a string_carrier
-size_t string_carrier_writefunc(void *ptr, size_t size, size_t nmemb, struct string_carrier *s) {
+static size_t string_carrier_writefunc(void *ptr, size_t size, size_t nmemb, struct string_carrier *s) {
 	// new length to realocate response chunks from libcurl
 	size_t new_len = s->len + (size * nmemb);
 	void *const tmp = realloc(s->ptr, new_len + 1);
@@ -48,15 +52,16 @@ size_t string_carrier_writefunc(void *ptr, size_t size, size_t nmemb, struct str
 	} else {
 		/* Now s->ptr points to the new chunk of memory. */
 		s->ptr = tmp;
-    // we already know the length of the string, so we can just copy it with memcpy instead of strlcpy
-		memcpy(s->ptr + s->len, ptr, new_len +1);
+		// we already know the length of the string, so we can just copy it with memcpy instead of strlcpy
+		memcpy(s->ptr + s->len, ptr, new_len + 1);
 		s->len = new_len;
 	}
 
 	return size * nmemb;
 }
 
-// memkv_client
+// memkv_client stores the configurations used to connect to the MemoryKV server
+// use `memkv_client_new` to create one, or `memkv_init_client` to initialize an existing instance
 typedef struct memkv_client {
 	char *host;
 } memkv_client;
@@ -76,7 +81,7 @@ memkv_client *memkv_client_new(char *host) {
 	return client;
 }
 
-char *build_url(const char *host, const char *params) {
+static char *build_url(const char *host, const char *params) {
 	// snprintf returns the number of characters that would have been written if called with NULL
 	unsigned long size_needed = snprintf(NULL, 0, "%s/%s", host, params);
 	// use that number to allocate a buffer of the right size
@@ -97,7 +102,7 @@ typedef struct {
 static const char base_curl_error[] = "Error from curl";
 static const char unknown_error_msg[] = "unknown error";
 
-void make_curl_error(memkv_result *r, const char *err) {
+static void make_curl_error(memkv_result *r, const char *err) {
 	r->success = false;
 
 	if (strlen(err) == 0) {
@@ -131,7 +136,7 @@ memkv_result *init_memkv_result() {
 	return r;
 }
 
-memkv_result *memkv_execute_request(
+static memkv_result *memkv_execute_request(
 	const char *url,
 	const char *custom_req,
 	const char *content_type,
@@ -207,9 +212,9 @@ memkv_result *memkv_execute_request(
 	}
 
 	r->success = true;
-  // updates the result pointer to point to the string_carrier->ptr
-  r-> result = s->ptr;
-  free(s);
+	// updates the result pointer to point to the string_carrier->ptr
+	r->result = s->ptr;
+	free(s);
 
 	return r;
 }
