@@ -1,1 +1,4 @@
 /target
+sdks/c/build
+.vscode/settings.json
+

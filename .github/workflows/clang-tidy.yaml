@@ -1,0 +1,32 @@
+name: clang-tidy-review
+
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.h'
+  workflow_dispatch:
+
+jobs:
+  clang-tidy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install libcurl
+      run: sudo apt-get update && sudo apt-get install -y curl libcurl4-openssl-dev
+
+    - name: CMake
+      working-directory: ./sdks/c/
+      env:
+        CC: clang
+      run: cmake -B ./build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+    - name: reviewdog with clang-tidy
+      uses: arkedge/action-clang-tidy@v1.2.0
+      with:
+        workdir: ./sdks/c/build/
+
+    - name: Build
+      working-directory: ./sdks/c/
+      run: cmake -S . -B ./build

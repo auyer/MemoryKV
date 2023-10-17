@@ -1,0 +1,3 @@
+-I./libMemoryKV
+-llibMemoryKV
+-std=c2x
