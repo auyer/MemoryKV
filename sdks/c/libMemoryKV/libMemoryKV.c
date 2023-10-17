@@ -219,10 +219,9 @@ memkv_result *memkv_execute_request(
 	}
 
 	r->success = true;
-	r->result = malloc(strlen(s->ptr) + 1);
+	r->result = malloc(s->len + 1);
+	strlcpy(r->result, s->ptr, s->len + 1);
 
-	strcpy(r->result, s->ptr);
-	// strlcpy(r->result, s->ptr, sizeof(r->result) + sizeof(s->ptr));
 	return r;
 }
 
