@@ -6,10 +6,10 @@ typedef struct memkv_client {
 	char *host;
 } memkv_client;
 
-// memkv_result stores a success boolean to indicate if the request was successfull or not.
+// memkv_result stores a success boolean to indicate if the request was successful or not.
 // the success variable should be checked before reading results
-// in case of success, the result will be stored in the result attribure `memkv_result->result`
-// in case of error, the error reason will be stored in the error attribure `memkv_result->error`
+// in case of success, the result will be stored in the result attribute `memkv_result->result`
+// in case of error, the error reason will be stored in the error attribute `memkv_result->error`
 typedef struct {
 	bool success : 1;
 	union {
@@ -22,7 +22,8 @@ typedef struct {
 memkv_client *memkv_client_new(char *host);
 
 // memkv_init_client initializes an existing memkv_client with a provided URL
-void memkv_init_client(struct memkv_client *client, char *host);
+// If this function returns non-zero, something went wrong and you cannot use the other underlying curl functions.
+int memkv_init_client(struct memkv_client *client, char *host);
 
 // memkv_get_key fetches the value of a key from the MemoryKV server
 memkv_result *memkv_get_key(struct memkv_client *client, const char *key);
