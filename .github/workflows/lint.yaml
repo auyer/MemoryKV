@@ -2,6 +2,9 @@ name: Lint
 
 on:
   pull_request:
+    paths:
+      - '**.rs'
+      - Cargo.toml
 
 jobs:
   clippy_check:
