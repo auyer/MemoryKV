@@ -1,4 +1,5 @@
 #include <curl/curl.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -102,12 +103,12 @@ typedef struct {
 static const char base_curl_error[] = "Error from curl";
 static const char unknown_error_msg[] = "unknown error";
 
-static void make_curl_error(memkv_result *r, const char *err) {
+// write_result_error sets result as Error with a message
+static void write_result_error(memkv_result *r, const char *err) {
 	r->success = false;
 
 	if (strlen(err) == 0) {
 		r->error = malloc(sizeof(unknown_error_msg));
-		// strlcpy(r->error, unknown_error_msg, sizeof(unknown_error_msg) + sizeof(r->error));
 		strcpy(r->error, unknown_error_msg);
 
 		return;
@@ -136,6 +137,47 @@ memkv_result *init_memkv_result() {
 	return r;
 }
 
+// curl errors are ints smaller than 100. This value was chosen as an offset to store all errors in a single int
+static const int ERR_OFFSET = 100;
+
+// accumulate_curl_errors takes an int and multiplies it by ERR_OFFSET to store the previous error and the new one in a
+// single int
+static int accumulate_curl_errors(int err_accumulator, int new_error) {
+	if (new_error == 0) {
+		return err_accumulator;
+	}
+	if (err_accumulator == 0) {
+		return new_error;
+	}
+	return (err_accumulator * ERR_OFFSET) + new_error;
+}
+
+// err_accumulator_to_string makes a string out of a single integer that contains multiple errors by dividing it by
+// ERR_OFFSET
+static char *err_accumulator_to_string(int err_accumulator) {
+	// log(err_accumulator) on base ERR_OFFSET gives the number of errors
+	int len = log10(err_accumulator) / log10(ERR_OFFSET);
+	// to store in a string array
+	int str_len;
+	if (len == 1) {
+		// log ERR_OFFSET is the number of characters in the error message
+		// +1 for the null terminator at the end
+		str_len = log10(ERR_OFFSET) + 1;
+	} else {
+		// log ERR_OFFSET is the number of characters in the error message
+		// +1 for the comma and the null terminator at the end (since there will be no comma)
+		// times the number of errors
+		str_len = (log10(ERR_OFFSET) + 1) * len;
+	}
+	char *err_array = malloc(str_len);
+	for (int i = 0; i < len; i++) {
+		snprintf(err_array, str_len, "%s,%d", err_array, (err_accumulator % ERR_OFFSET));
+		err_accumulator = err_accumulator / ERR_OFFSET;
+	}
+
+	return err_array;
+}
+
 static memkv_result *memkv_execute_request(
 	const char *url,
 	const char *custom_req,
@@ -150,22 +192,22 @@ static memkv_result *memkv_execute_request(
 	CURL *curl = curl_easy_init();
 
 	if (!curl) {
-		make_curl_error(r, "Failed starting curl.");
+		write_result_error(r, "Failed starting curl.");
 		return r;
 	}
 
 	string_carrier *s = new_string_carrier();
 
 	if (s == NULL || s->error_flag) {
-		make_curl_error(r, "Failed to initialize string_carrier");
+		write_result_error(r, "Failed to initialize string_carrier");
 		return r;
 	}
 
-	int curl_parameter_responses = 0;
-	curl_parameter_responses += curl_easy_setopt(curl, CURLOPT_URL, url);
+	int curl_parameter_errors = 0;
+	accumulate_curl_errors(curl_parameter_errors, curl_easy_setopt(curl, CURLOPT_URL, url));
 
 	if (custom_req) {
-		curl_parameter_responses += curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, custom_req);
+		accumulate_curl_errors(curl_parameter_errors, curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, custom_req));
 	}
 
 	struct curl_slist *headers = NULL;
@@ -174,23 +216,30 @@ static memkv_result *memkv_execute_request(
 		/* default type with postfields is application/x-www-form-urlencoded,
 		   change it if you want. */
 		headers = curl_slist_append(headers, content_type);
-		curl_parameter_responses += curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		accumulate_curl_errors(curl_parameter_errors, curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers));
 	}
 
 	if (post_data) {
-		curl_parameter_responses += curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
+		accumulate_curl_errors(curl_parameter_errors, curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data));
 	}
 
-	curl_parameter_responses += curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	accumulate_curl_errors(curl_parameter_errors, curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L));
+	if (curl_parameter_errors != 0) {
+		printf("Curl returned errors while setting parameters: %s\n", err_accumulator_to_string(curl_parameter_errors));
+		write_result_error(r, err_accumulator_to_string(curl_parameter_errors));
+		return r;
+	}
 
-	printf("Curl parameters responses %d %s\n", curl_parameter_responses, curl_parameter_responses ? "true" : "false");
+	int curl_body_errors = 0;
 
-	int curl_body_responses = 0;
+	accumulate_curl_errors(curl_body_errors, curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, string_carrier_writefunc));
+	accumulate_curl_errors(curl_body_errors, curl_easy_setopt(curl, CURLOPT_WRITEDATA, s));
 
-	curl_body_responses += curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, string_carrier_writefunc);
-	curl_body_responses += curl_easy_setopt(curl, CURLOPT_WRITEDATA, s);
-
-	printf("Curl body responses %d %s\n", curl_body_responses, curl_body_responses ? "true" : "false");
+	if (curl_body_errors != 0) {
+		printf("Curl returned errors while setting body: %s\n", err_accumulator_to_string(curl_body_errors));
+		write_result_error(r, err_accumulator_to_string(curl_parameter_errors));
+		return r;
+	}
 
 	res = curl_easy_perform(curl);
 
@@ -202,12 +251,12 @@ static memkv_result *memkv_execute_request(
 
 	if (res != CURLE_OK) {
 		const char *err = curl_easy_strerror(res);
-		make_curl_error(r, err);
+		write_result_error(r, err);
 		return r;
 	}
 
 	if (s->error_flag) {
-		make_curl_error(r, "Failed to get results from server.");
+		write_result_error(r, "Failed to get results from server.");
 		return r;
 	}
 
