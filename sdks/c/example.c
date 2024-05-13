@@ -15,10 +15,17 @@ void print_memkv_result(memkv_result *response) {
 	free(response);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+
 	memkv_client *client;
 
-	client = memkv_client_new("http://localhost:8080");
+	static char defalt_address[] = "http://localhost:8080";
+
+	if (argc == 1) {
+		client = memkv_client_new(argv[1]);
+	} else {
+		client = memkv_client_new(defalt_address);
+	}
 
 	memkv_result *response;
 

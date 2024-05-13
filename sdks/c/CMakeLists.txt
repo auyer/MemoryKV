@@ -7,7 +7,7 @@ add_executable(${PROJECT_NAME} example.c)
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 23)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(libcurl REQUIRED IMPORTED_TARGET libcurl>=7.17.0)
+pkg_check_modules(libcurl REQUIRED IMPORTED_TARGET libcurl>=8.5.0)
 
 add_subdirectory(libMemoryKV)
 
