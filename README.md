@@ -7,8 +7,8 @@ This is a in memory Key Value store in Rust. It also has a Write Ahead Log serve
 
 What I wanted to create:
 
-- In memory database (like Redis)
-- Using cuncurrent patterns (unlike Redis)
+- In memory database with a hashmap structure
+- Using concurrent patterns
 - In the Rust programming language
 - With a live feed of changes (it felt like a cool demo for my personal site)
 
