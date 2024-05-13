@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use tokio::net::TcpListener;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -30,13 +30,13 @@ async fn main() {
 async fn server(port: u16) {
     let app = routes::build_app();
 
-    // Run our app with axum
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    tracing::info!("listening on {}", addr);
+    let listener = TcpListener::bind(format! {"0.0.0.0:{}", port})
+        .await
+        .unwrap();
 
-    axum::Server::bind(&addr)
-        .serve(app)
+    tracing::info!("listening on {}", format! {"0.0.0.0:{}", port});
+    axum::serve(listener, app)
         .with_graceful_shutdown(shutdown::shutdown_signal())
         .await
-        .expect("server failed");
+        .expect("server failed")
 }

@@ -1,15 +1,13 @@
 use axum::extract::connect_info::ConnectInfo;
 use axum::{
     body::Bytes,
-    extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
-        TypedHeader,
-    },
+    extract::ws::{Message, WebSocket, WebSocketUpgrade},
     extract::{Path, State},
-    headers::ContentType,
     http::StatusCode,
     response::IntoResponse,
 };
+use headers::ContentType;
+use axum_extra::TypedHeader;
 use futures::{sink::SinkExt, stream::StreamExt};
 use std::borrow::Cow;
 use std::net::SocketAddr;

@@ -1,9 +1,13 @@
 use axum::{
-    extract::MatchedPath, http::Request, middleware::Next, response::IntoResponse, routing::get,
+    extract::{MatchedPath, Request},
+    middleware::Next,
+    response::IntoResponse,
+    routing::get,
     Router,
 };
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
-use std::{future::ready, net::SocketAddr, time::Instant};
+use std::{future::ready, time::Instant};
+use tokio::net::TcpListener;
 use tower_http::{
     classify::{ServerErrorsAsFailures, SharedClassifier},
     trace::{self, TraceLayer},
@@ -20,11 +24,12 @@ fn metrics_app() -> Router {
 pub async fn start_metrics_server(port: u16) {
     let app = metrics_app();
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    tracing::info!("listening on {}", addr);
+    let listener = TcpListener::bind(format! {"127.0.0.1:{}", port})
+        .await
+        .unwrap();
 
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    tracing::info!("listening on {}", format! {"127.0.0.1:{}", port});
+    axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown::shutdown_signal())
         .await
         .unwrap()
@@ -52,7 +57,7 @@ pub fn create_tracing_layer() -> TraceLayer<SharedClassifier<ServerErrorsAsFailu
         .on_failure(trace::DefaultOnFailure::new().level(Level::INFO))
 }
 
-pub async fn track_metrics<B>(req: Request<B>, next: Next<B>) -> impl IntoResponse {
+pub async fn track_metrics(req: Request, next: Next) -> impl IntoResponse {
     let start = Instant::now();
     let path = if let Some(matched_path) = req.extensions().get::<MatchedPath>() {
         matched_path.as_str().to_owned()
@@ -75,8 +80,8 @@ pub async fn track_metrics<B>(req: Request<B>, next: Next<B>) -> impl IntoRespon
         ("uri", uri),
     ];
 
-    metrics::increment_counter!("http_requests_total", &labels);
-    metrics::histogram!("http_requests_duration_seconds", latency, &labels);
+    metrics::counter!("http_requests_total", &labels).increment(1);
+    metrics::histogram!("http_requests_duration_seconds", &labels).record(latency);
 
     response
 }
